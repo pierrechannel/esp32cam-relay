@@ -1,48 +1,98 @@
 <!DOCTYPE html>
-<html>
-<%- include('./partials/head.ejs') %>
-<body class="page_display">
-	<div class="main_content">
-		<div class="page_title"><h1 class="tcenter">Camera relay</h1></div>
-		<div class="tcenter">
-			<canvas id="canvas">
-			  Désolé, votre navigateur ne prend pas en charge &lt;canvas&gt;.
-			</canvas>
-		</div>
-	</div>
-	
-	<script>
-	var portStr="";
-	if(location.port != "")
-	{
-		portStr=":"+location.port;
-	}
-	var protocolStr="ws";
-	if (location.protocol === 'https:') {
-		protocolStr="wss";
-	}
-	console.log(protocolStr+'://' + location.hostname + portStr+"/jpgstream_client");
-	var ws = new WebSocket(protocolStr+'://' + location.hostname + portStr+"/jpgstream_client");	
-	var canvas = document.getElementById('canvas');
-	var ctx = canvas.getContext('2d');
-	
-	var img = new Image();
-	img.onload = function() {
-			canvas.style.width=this.width+'px';
-			canvas.style.height=this.height+'px';
-			ctx.drawImage(this, 0, 0, this.width,    this.height,     // source rectangle
-                   0, 0, canvas.width, canvas.height); // destination rectangle
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Farming</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .stream-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <header class="text-center mb-5">
+            <h1 class="display-4 fw-bold text-primary">Smart Farming</h1>
+        </header>
+        
+        <main class="stream-container">
+            <div class="ratio ratio-16x9">
+                <canvas id="streamCanvas" class="bg-white">
+                    Sorry, your browser doesn't support canvas.
+                </canvas>
+            </div>
+        </main>
+    </div>
 
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Canvas setup
+            const canvas = document.getElementById('streamCanvas');
+            const ctx = canvas.getContext('2d');
 
-	}
-	
-	ws.onmessage = function(message) {	
-		var url = URL.createObjectURL(message.data);
-		img.src = url;		
-	};
+            // WebSocket setup
+            const portStr = location.port ? `:${location.port}` : '';
+            const protocolStr = location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${protocolStr}://${location.hostname}${portStr}/jpgstream_client`;
+            
+            const ws = new WebSocket(wsUrl);
+            
+            // Image handling
+            const img = new Image();
+            img.onload = function() {
+                // Set canvas dimensions to match image
+                canvas.width = this.width;
+                canvas.height = this.height;
+                
+                // Draw image maintaining aspect ratio
+                ctx.drawImage(
+                    this,
+                    0, 0, this.width, this.height,
+                    0, 0, canvas.width, canvas.height
+                );
+            };
 
+            // WebSocket message handling
+            ws.onmessage = function(message) {
+                const url = URL.createObjectURL(message.data);
+                img.src = url;
+                // Clean up the blob URL after the image loads
+                img.onload = function() {
+                    ctx.drawImage(
+                        this,
+                        0, 0, this.width, this.height,
+                        0, 0, canvas.width, canvas.height
+                    );
+                    URL.revokeObjectURL(url);
+                };
+            };
 
+            // Error handling
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
 
-	</script>
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', function() {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
+            });
+        });
+    </script>
 </body>
 </html>
